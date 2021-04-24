@@ -3,6 +3,7 @@ declare (strict_types=1);
 
 namespace PHPMate\UseCase;
 
+use PHPMate\Domain\Caching\RepositoryCache;
 use PHPMate\Domain\Composer\Composer;
 use PHPMate\Domain\Composer\ComposerCommandFailed;
 use PHPMate\Domain\FileSystem\ProjectDirectoryProvider;
@@ -24,7 +25,8 @@ final class RunRectorOnGitlabRepositoryUseCase
         private Rector $rector,
         private ProjectDirectoryProvider $projectDirectoryProvider,
         private BranchNameProvider $branchNameProvider,
-        private Notifier $notifier
+        private Notifier $notifier,
+        private RepositoryCache $repositoryCache
     ) {}
 
 
@@ -32,21 +34,13 @@ final class RunRectorOnGitlabRepositoryUseCase
     {
         $projectDirectory = $this->projectDirectoryProvider->provide();
 
-        // TODO: add caching of git repo
-        // Scenario:
-        //   - Check if cache exists:
-        //
-        //   NO:
-        //   - clone
-        //
-        //   YES:
-        //   - retrieve from cache
-        //   - fetch
-        //   - pull
-        //
-        //   ... continue ...
-        //
-        //   - Save to cache after MR
+        if ($this->repositoryCache->isCached()) {
+            $this->repositoryCache->restoreFromCache();
+            // $this->git->fetch()
+            // $this->git->pull()
+        } else {
+            // $this->git->clone();
+        }
 
         try {
             $this->git->clone($projectDirectory, $command->gitlabRepository->getAuthenticatedRepositoryUri());
@@ -96,7 +90,7 @@ final class RunRectorOnGitlabRepositoryUseCase
                 );
             }
 
-            //
+            // $this->repositoryCache->save()
         } catch (GitCommandFailed | ComposerCommandFailed | RectorCommandFailed $exception) {
             $this->notifier->notifyAboutFailedCommand($exception);
 
